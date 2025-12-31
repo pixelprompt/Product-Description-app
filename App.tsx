@@ -17,7 +17,9 @@ import {
   Store,
   Sparkles,
   ArrowRightLeft,
-  FileText
+  FileText,
+  FileDown,
+  CheckCircle
 } from 'lucide-react';
 import { 
   ProductDetails, 
@@ -99,6 +101,45 @@ const App: React.FC = () => {
       setIsLoading(false);
       setLoadingStep('');
     }
+  };
+
+  const downloadAsFile = (format: 'txt' | 'md') => {
+    if (!finalListing) return;
+    const content = finalListing[selectedTone];
+    const fileName = `listing-${details.name.replace(/\s+/g, '-').toLowerCase()}-${selectedTone}.${format}`;
+    
+    let text = '';
+    if (format === 'md') {
+      text = `# ${details.name}\n\n`;
+      text += `**Tone:** ${selectedTone.charAt(0).toUpperCase() + selectedTone.slice(1)}\n\n`;
+      text += `## Description\n${content.description}\n\n`;
+      text += `## Care Instructions\n${content.fabricCare}\n\n`;
+      text += `## Shipping Information\n${content.shipping}\n\n`;
+      text += `## Product Specifications\n`;
+      Object.entries(details).forEach(([key, value]) => {
+        if (value) text += `- **${key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:** ${value}\n`;
+      });
+    } else {
+      text = `${details.name.toUpperCase()}\n`;
+      text += `Tone: ${selectedTone.toUpperCase()}\n\n`;
+      text += `DESCRIPTION:\n${content.description}\n\n`;
+      text += `CARE INSTRUCTIONS:\n${content.fabricCare}\n\n`;
+      text += `SHIPPING:\n${content.shipping}\n\n`;
+      text += `SPECIFICATIONS:\n`;
+      Object.entries(details).forEach(([key, value]) => {
+        if (value) text += `${key.replace(/([A-Z])/g, ' $1').toUpperCase()}: ${value}\n`;
+      });
+    }
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -293,6 +334,91 @@ const App: React.FC = () => {
                    Go to Export <Download size={18} />
                  </button>
               </div>
+          </div>
+        )}
+
+        {activeTab === 4 && (
+          <div className="max-w-4xl mx-auto animate-in fade-in space-y-8">
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-black text-slate-800 tracking-tight">Ready for Launch</h2>
+              <p className="text-slate-500 font-medium italic">Download your optimized listings for direct upload to marketplaces.</p>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white rounded-[40px] p-8 shadow-xl border border-slate-100">
+                  <h3 className="text-lg font-black mb-6 flex items-center gap-2">
+                    <FileText className="text-indigo-600" /> Export Preview
+                  </h3>
+                  {finalListing ? (
+                    <div className="space-y-4">
+                      <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                         <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest block mb-2">Description</span>
+                         <p className="text-xs text-slate-600 leading-relaxed italic line-clamp-[12]">
+                           {finalListing[selectedTone].description}
+                         </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Care</span>
+                          <p className="text-[10px] font-bold text-slate-600 truncate">{finalListing[selectedTone].fabricCare}</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Shipping</span>
+                          <p className="text-[10px] font-bold text-slate-600 truncate">{finalListing[selectedTone].shipping}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex flex-col items-center justify-center text-slate-300">
+                      <FileCode size={48} className="opacity-10 mb-4" />
+                      <p className="font-medium text-sm">No listing generated yet.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="bg-white rounded-[40px] p-8 shadow-xl border border-slate-100 h-fit">
+                   <h3 className="text-lg font-black mb-6">Choose Format</h3>
+                   <div className="space-y-3">
+                      <button 
+                        onClick={() => downloadAsFile('txt')}
+                        disabled={!finalListing}
+                        className="w-full group py-4 px-6 bg-indigo-50 hover:bg-indigo-600 text-indigo-600 hover:text-white rounded-2xl font-black text-sm transition-all flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileDown size={20} />
+                          Plain Text (.txt)
+                        </div>
+                        <ChevronRight size={16} className="opacity-40 group-hover:opacity-100" />
+                      </button>
+                      
+                      <button 
+                        onClick={() => downloadAsFile('md')}
+                        disabled={!finalListing}
+                        className="w-full group py-4 px-6 bg-slate-50 hover:bg-slate-900 text-slate-900 hover:text-white rounded-2xl font-black text-sm transition-all flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileCode size={20} />
+                          Markdown (.md)
+                        </div>
+                        <ChevronRight size={16} className="opacity-40 group-hover:opacity-100" />
+                      </button>
+                   </div>
+
+                   <div className="mt-8 p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                      <div className="flex items-center gap-2 mb-2 text-indigo-600">
+                         <CheckCircle size={16} />
+                         <span className="text-xs font-black uppercase">Pro-Tip</span>
+                      </div>
+                      <p className="text-[10px] text-indigo-700/70 font-bold leading-relaxed">
+                        Markdown is best for platforms that support formatting like Shopify, while TXT is perfect for Amazon/Flipkart basic descriptions.
+                      </p>
+                   </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </main>
