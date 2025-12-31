@@ -14,36 +14,35 @@ export class GeminiService {
       inlineData: { data: file.data.split(',')[1], mimeType: file.type }
     }));
 
+    const promptText = "Analyze these " + files.length + " images of apparel with high precision.\n\n" +
+      "TASK 1: Extract a detailed 'Visual Signature' (Exact shade, fabric texture like crepe or knit, design details like mesh or sequins, and silhouette).\n\n" +
+      "TASK 2: Check if all images are of the EXACT same garment.\n\n" +
+      "Return JSON structure:\n" +
+      "{\n" +
+      "  \"isMatch\": boolean,\n" +
+      "  \"confidence\": number,\n" +
+      "  \"reason\": \"string\",\n" +
+      "  \"mismatchedIndices\": [number],\n" +
+      "  \"mergedMetadata\": {\n" +
+      "    \"garmentType\": \"string\",\n" +
+      "    \"fabricTexture\": \"string\",\n" +
+      "    \"colors\": [\"string\"],\n" +
+      "    \"pattern\": \"string\",\n" +
+      "    \"neckline\": \"string\",\n" +
+      "    \"sleeveStyle\": \"string\",\n" +
+      "    \"brandClues\": \"string\",\n" +
+      "    \"suggestedName\": \"string\",\n" +
+      "    \"visualSignature\": \"string\"\n" +
+      "  }\n" +
+      "}";
+
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: {
           parts: [
             ...imageParts,
-            { text: `Analyze these ${files.length} images of apparel with high precision.
-            
-            TASK 1: Extract a detailed 'Visual Signature' (Exact shade, fabric texture like crepe or knit, design details like mesh or sequins, and silhouette).
-            
-            TASK 2: Check if all images are of the EXACT same garment.
-            
-            Return JSON:
-            {
-              "isMatch": boolean,
-              "confidence": number,
-              "reason": "string",
-              "mismatchedIndices": [number],
-              "mergedMetadata": {
-                "garmentType": "string",
-                "fabricTexture": "string",
-                "colors": ["string"],
-                "pattern": "string",
-                "neckline": "string",
-                "sleeveStyle": "string",
-                "brandClues": "string",
-                "suggestedName": "string",
-                "visualSignature": "string"
-              }
-            }` }
+            { text: promptText }
           ],
         },
         config: {
@@ -85,24 +84,17 @@ export class GeminiService {
     }
   }
 
-  /**
-   * Two-step process to handle search grounding + structured output.
-   * Step 1: Search raw text with googleSearch.
-   * Step 2: Format that text into JSON.
-   */
   static async researchCrossPlatform(metadata: ProductMetadata, iteration: number = 1): Promise<CrossPlatformResearch> {
     const ai = this.getAI();
     
-    // STEP 1: RAW SEARCH
-    const searchPrompt = `Perform an EXACT MATCH search for this product: "${metadata.suggestedName}".
-    VISUAL SIGNATURE: "${metadata.visualSignature}"
-    
-    MANDATORY: 
-    1. Find actual listings on Amazon.in, Flipkart, Myntra, Ajio, or Meesho.
-    2. Identify EXACT measurements/dimensions. We need consensus from multiple sources.
-    3. Return a list of platform names, titles, descriptions, prices, and dimensions found.
-    4. Provide a summary of common keywords used by top sellers.
-    5. Draft an 'AI-Merged Master Copy' of the description based on all sources.`;
+    const searchPrompt = "Perform an EXACT MATCH search for this product: \"" + metadata.suggestedName + "\".\n" +
+      "VISUAL SIGNATURE: \"" + metadata.visualSignature + "\"\n\n" +
+      "MANDATORY:\n" +
+      "1. Find actual listings on Amazon.in, Flipkart, Myntra, Ajio, or Meesho.\n" +
+      "2. Identify EXACT measurements/dimensions. We need consensus from multiple sources.\n" +
+      "3. Return platform names, titles, descriptions, prices, and dimensions.\n" +
+      "4. Summary of common keywords.\n" +
+      "5. Draft an 'AI-Merged Master Copy' of the description.";
 
     try {
       const searchResponse = await ai.models.generateContent({
@@ -119,24 +111,19 @@ export class GeminiService {
         title: chunk.web?.title || 'Market Source'
       })).filter((s: any) => s.uri) || [];
 
-      // STEP 2: JSON FORMATTING
-      const formatPrompt = `Convert the following market research data into a structured JSON object.
-      
-      RESEARCH DATA:
-      ${rawSearchText}
-      
-      JSON SCHEMA:
-      {
-        "listings": [
-          { "platform": "string", "title": "string", "description": "string", "price": "string", "numericPrice": number, "url": "string", "dimensions": "string" }
-        ],
-        "commonKeywords": ["string"],
-        "mergedMaster": "string",
-        "confirmedDimensions": "string",
-        "dimensionSourceCount": number
-      }
-      
-      Important: Use numericPrice 0 if unknown. Ensure dimensionSourceCount reflects how many unique platforms provided dimensions.`;
+      const formatPrompt = "Convert the following market research data into a structured JSON object.\n\n" +
+        "RESEARCH DATA:\n" + rawSearchText + "\n\n" +
+        "JSON SCHEMA:\n" +
+        "{\n" +
+        "  \"listings\": [\n" +
+        "    { \"platform\": \"string\", \"title\": \"string\", \"description\": \"string\", \"price\": \"string\", \"numericPrice\": number, \"url\": \"string\", \"dimensions\": \"string\" }\n" +
+        "  ],\n" +
+        "  \"commonKeywords\": [\"string\"],\n" +
+        "  \"mergedMaster\": \"string\",\n" +
+        "  \"confirmedDimensions\": \"string\",\n" +
+        "  \"dimensionSourceCount\": number\n" +
+        "}\n\n" +
+        "Important: numericPrice 0 if unknown. dimensionSourceCount reflects unique platforms.";
 
       const formatResponse = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
@@ -189,10 +176,9 @@ export class GeminiService {
 
   static async generateFullListing(details: ProductDetails, masterDesc?: string): Promise<FullListing> {
     const ai = this.getAI();
-    const prompt = `Generate 3 distinct product listings (casual, professional, luxurious) based on: ${JSON.stringify(details)}. 
-    Reference master draft: ${masterDesc || 'N/A'}.
-    
-    Return JSON structure: { "casual": { "description": "...", "fabricCare": "...", "shipping": "...", "moreInfo": {} }, "professional": { ... }, "luxurious": { ... } }`;
+    const prompt = "Generate 3 distinct product listings (casual, professional, luxurious) based on: " + JSON.stringify(details) + ".\n" +
+      "Reference master draft: " + (masterDesc || 'N/A') + ".\n\n" +
+      "Return JSON structure: { \"casual\": { \"description\": \"...\", \"fabricCare\": \"...\", \"shipping\": \"...\", \"moreInfo\": {} }, \"professional\": { ... }, \"luxurious\": { ... } }";
 
     try {
       const response = await ai.models.generateContent({

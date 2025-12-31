@@ -103,7 +103,6 @@ export default function App() {
         setResearch(currentResearch);
         
         if (currentResearch) {
-          // Initialize Product Specs (Editable Form)
           const initialDetails: ProductDetails = {
             name: result.mergedMetadata.suggestedName || 'Black Sheer Panel Starfish Embellished',
             brand: 'Casual', 
@@ -113,7 +112,7 @@ export default function App() {
             price: currentResearch.listings[0]?.price || '',
             dimensions: currentResearch.confirmedDimensions || '',
             itemsIncluded: '1 Gown',
-            styleCode: 'LUX-SIREN-' + Math.random().toString(36).substr(2, 3).toUpperCase(),
+            styleCode: 'LUX-SIREN-' + Math.random().toString(36).substring(2, 5).toUpperCase(),
             topType: 'Sweetheart with spaghetti straps',
             bottomType: 'Floor-Length Draped Skirt',
             pattern: result.mergedMetadata.pattern || 'Solid with rhinestone starfish appliqué',
@@ -157,6 +156,8 @@ export default function App() {
     if (!editableDetails) return;
     setEditableDetails({ ...editableDetails, [key]: value });
   };
+
+  const currentToneLabel = tone.charAt(0).toUpperCase() + tone.slice(1);
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100">
@@ -213,7 +214,7 @@ export default function App() {
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{images.length} OF 5 UPLOADED</span>
                     <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: `${(images.length / 5) * 100}%` }} />
+                      <div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: (images.length / 5 * 100).toString() + '%' }} />
                     </div>
                   </div>
                   <button onClick={clearAll} className="text-xs font-bold text-red-500 flex items-center gap-1 uppercase tracking-widest hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all">
@@ -312,14 +313,14 @@ export default function App() {
         {activeTab === 'specs' && editableDetails && (
           <div className="animate-in space-y-8 bg-slate-50/50 p-12 rounded-[48px] border border-slate-100">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-y-10 gap-x-8">
-              {Object.keys(editableDetails).map((key) => (
+              {(Object.keys(editableDetails) as (keyof ProductDetails)[]).map((key) => (
                 <div key={key} className="space-y-2.5">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">{key.replace(/([A-Z])/g, ' $1').trim()}</label>
                   <input
                     type="text"
-                    value={editableDetails[key as keyof ProductDetails]}
-                    onChange={(e) => updateDetail(key as keyof ProductDetails, e.target.value)}
-                    placeholder={`Enter ${key}...`}
+                    value={editableDetails[key]}
+                    onChange={(e) => updateDetail(key, e.target.value)}
+                    placeholder={'Enter ' + key + '...'}
                     className="w-full px-6 py-4 bg-white border border-slate-100 rounded-[20px] text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-slate-200 shadow-sm"
                   />
                 </div>
@@ -336,7 +337,7 @@ export default function App() {
                 className="flex-1 ml-6 py-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[24px] font-bold text-sm flex items-center justify-center gap-3 shadow-xl shadow-indigo-100 transition-all active:scale-95 disabled:bg-slate-300"
               >
                 {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
-                {generating ? 'Processing AI...' : `Generate ${tone.charAt(0).toUpperCase() + tone.slice(1)} Listing`}
+                {generating ? 'Processing AI...' : ('Generate ' + currentToneLabel + ' Listing')}
               </button>
             </div>
           </div>
