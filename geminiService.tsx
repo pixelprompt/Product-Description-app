@@ -4,7 +4,9 @@ import { ProductDetails, ProductMetadata, FullListing, CrossPlatformResearch } f
 
 export class GeminiService {
   private static getAI() {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+    // Safely retrieve API key from environment
+    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+    return new GoogleGenAI({ apiKey: apiKey || '' });
   }
 
   static async analyzeImage(file: File): Promise<ProductMetadata> {
@@ -70,8 +72,8 @@ export class GeminiService {
     Return JSON structure:
     {
       "casual": { "description": "...", "fabricCare": "...", "shipping": "...", "moreInfo": {...} },
-      "professional": { ... },
-      "luxurious": { ... }
+      "professional": { "description": "...", "fabricCare": "...", "shipping": "...", "moreInfo": {...} },
+      "luxurious": { "description": "...", "fabricCare": "...", "shipping": "...", "moreInfo": {...} }
     }`;
 
     const response = await ai.models.generateContent({
