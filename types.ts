@@ -1,4 +1,3 @@
-
 export interface PlatformListing {
   platform: string;
   title: string;
@@ -12,6 +11,7 @@ export interface CrossPlatformResearch {
   listings: PlatformListing[];
   mergedMaster: string;
   commonKeywords: string[];
+  groundingSources?: { uri: string; title: string }[];
 }
 
 export interface ProductMetadata {
