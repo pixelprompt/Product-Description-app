@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ProductDetails, ProductMetadata, FullListing, CrossPlatformResearch, MatchResult } from './types';
 
@@ -13,179 +14,202 @@ export class GeminiService {
       inlineData: { data: file.data.split(',')[1], mimeType: file.type }
     }));
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          ...imageParts,
-          { text: `Analyze these ${files.length} images of apparel with Google Lens-level precision.
-          
-          TASK 1: Extract an 'Exact Visual Signature'. This is a hyper-detailed technical fingerprint including:
-          - Exact shade and finish (e.g., 'Matte Emerald' vs 'Shiny Forest Green')
-          - Specific fabric texture (e.g., 'heavyweight crepe', 'ribbed knit')
-          - Distinct design details (embroidery patterns, specific button types, unique stitching, mesh inserts, embellishments).
-          - silhouette features (e.g., 'asymmetric high slit', 'sweetheart neckline').
-          
-          TASK 2: Determine if all images are of the EXACT same garment.
-          
-          Return JSON:
-          {
-            "isMatch": boolean,
-            "confidence": number,
-            "reason": "string",
-            "mismatchedIndices": [number],
-            "mergedMetadata": {
-              "garmentType": "string",
-              "fabricTexture": "string",
-              "colors": ["string"],
-              "pattern": "string",
-              "neckline": "string",
-              "sleeveStyle": "string",
-              "brandClues": "string",
-              "suggestedName": "string",
-              "visualSignature": "string"
-            }
-          }` }
-        ],
-      },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            isMatch: { type: Type.BOOLEAN },
-            confidence: { type: Type.NUMBER },
-            reason: { type: Type.STRING },
-            mismatchedIndices: { type: Type.ARRAY, items: { type: Type.INTEGER } },
-            mergedMetadata: {
-              type: Type.OBJECT,
-              properties: {
-                garmentType: { type: Type.STRING },
-                fabricTexture: { type: Type.STRING },
-                colors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                pattern: { type: Type.STRING },
-                neckline: { type: Type.STRING },
-                sleeveStyle: { type: Type.STRING },
-                brandClues: { type: Type.STRING },
-                suggestedName: { type: Type.STRING },
-                visualSignature: { type: Type.STRING }
-              },
-              required: ["garmentType", "colors", "suggestedName", "visualSignature"]
-            }
-          },
-          required: ["isMatch", "confidence", "reason"]
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+          parts: [
+            ...imageParts,
+            { text: `Analyze these ${files.length} images of apparel with high precision.
+            
+            TASK 1: Extract a detailed 'Visual Signature' (Exact shade, fabric texture like crepe or knit, design details like mesh or sequins, and silhouette).
+            
+            TASK 2: Check if all images are of the EXACT same garment.
+            
+            Return JSON:
+            {
+              "isMatch": boolean,
+              "confidence": number,
+              "reason": "string",
+              "mismatchedIndices": [number],
+              "mergedMetadata": {
+                "garmentType": "string",
+                "fabricTexture": "string",
+                "colors": ["string"],
+                "pattern": "string",
+                "neckline": "string",
+                "sleeveStyle": "string",
+                "brandClues": "string",
+                "suggestedName": "string",
+                "visualSignature": "string"
+              }
+            }` }
+          ],
+        },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              isMatch: { type: Type.BOOLEAN },
+              confidence: { type: Type.NUMBER },
+              reason: { type: Type.STRING },
+              mismatchedIndices: { type: Type.ARRAY, items: { type: Type.INTEGER } },
+              mergedMetadata: {
+                type: Type.OBJECT,
+                properties: {
+                  garmentType: { type: Type.STRING },
+                  fabricTexture: { type: Type.STRING },
+                  colors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  pattern: { type: Type.STRING },
+                  neckline: { type: Type.STRING },
+                  sleeveStyle: { type: Type.STRING },
+                  brandClues: { type: Type.STRING },
+                  suggestedName: { type: Type.STRING },
+                  visualSignature: { type: Type.STRING }
+                },
+                required: ["garmentType", "colors", "suggestedName", "visualSignature"]
+              }
+            },
+            required: ["isMatch", "confidence", "reason"]
+          }
         }
-      }
-    });
+      });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from AI vision model.");
-    return JSON.parse(text);
+      const text = response.text;
+      if (!text) throw new Error("Empty response from vision model.");
+      return JSON.parse(text);
+    } catch (err) {
+      console.error("Analysis Error:", err);
+      throw err;
+    }
   }
 
+  /**
+   * Two-step process to handle search grounding + structured output.
+   * Step 1: Search raw text with googleSearch.
+   * Step 2: Format that text into JSON.
+   */
   static async researchCrossPlatform(metadata: ProductMetadata, iteration: number = 1): Promise<CrossPlatformResearch> {
     const ai = this.getAI();
     
-    const prompt = `Perform an EXACT MATCH Google Lens style search for this product: "${metadata.suggestedName}".
-    
+    // STEP 1: RAW SEARCH
+    const searchPrompt = `Perform an EXACT MATCH search for this product: "${metadata.suggestedName}".
     VISUAL SIGNATURE: "${metadata.visualSignature}"
     
-    CRITICAL SEARCH INSTRUCTIONS:
-    1. EXACT CLOTH ONLY: Search for listings that match the visual signature 95%+.
-    2. DIMENSIONS: Extract EXACT measurements/dimensions from EACH listing. We MANDATORILY require at least 3 DIFFERENT WEBSITES with matching/similar dimensions (within 15% variance).
-    3. TARGET: Focus on Indian Marketplaces (Amazon.in, Flipkart, Myntra, Ajio, Meesho) + Global (Zara, ASOS, H&M).
-    4. ITERATION DEPTH: ${iteration > 1 ? 'Perform a MUCH DEEPER search. We need more dimension sources.' : 'Perform primary market search.'}
-    
-    Return JSON:
-    {
-      "listings": [
-        {
-          "platform": "string",
-          "title": "string",
-          "description": "string",
-          "price": "string",
-          "numericPrice": number,
-          "url": "string",
-          "dimensions": "string"
-        }
-      ],
-      "commonKeywords": ["string"],
-      "mergedMaster": "string",
-      "confirmedDimensions": "string (The final agreed value)",
-      "dimensionSourceCount": number (Count of sources agreeing on this value)
-    }`;
+    MANDATORY: 
+    1. Find actual listings on Amazon.in, Flipkart, Myntra, Ajio, or Meesho.
+    2. Identify EXACT measurements/dimensions. We need consensus from multiple sources.
+    3. Return a list of platform names, titles, descriptions, prices, and dimensions found.
+    4. Provide a summary of common keywords used by top sellers.
+    5. Draft an 'AI-Merged Master Copy' of the description based on all sources.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            listings: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  platform: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  price: { type: Type.STRING },
-                  numericPrice: { type: Type.NUMBER },
-                  url: { type: Type.STRING },
-                  dimensions: { type: Type.STRING }
-                },
-                required: ["platform", "title", "description", "price", "numericPrice", "url", "dimensions"]
-              }
+    try {
+      const searchResponse = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: { parts: [{ text: searchPrompt }] },
+        config: {
+          tools: [{ googleSearch: {} }]
+        },
+      });
+
+      const rawSearchText = searchResponse.text;
+      const groundingSources = searchResponse.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || 'Market Source'
+      })).filter((s: any) => s.uri) || [];
+
+      // STEP 2: JSON FORMATTING
+      const formatPrompt = `Convert the following market research data into a structured JSON object.
+      
+      RESEARCH DATA:
+      ${rawSearchText}
+      
+      JSON SCHEMA:
+      {
+        "listings": [
+          { "platform": "string", "title": "string", "description": "string", "price": "string", "numericPrice": number, "url": "string", "dimensions": "string" }
+        ],
+        "commonKeywords": ["string"],
+        "mergedMaster": "string",
+        "confirmedDimensions": "string",
+        "dimensionSourceCount": number
+      }
+      
+      Important: Use numericPrice 0 if unknown. Ensure dimensionSourceCount reflects how many unique platforms provided dimensions.`;
+
+      const formatResponse = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: { parts: [{ text: formatPrompt }] },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              listings: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    platform: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    price: { type: Type.STRING },
+                    numericPrice: { type: Type.NUMBER },
+                    url: { type: Type.STRING },
+                    dimensions: { type: Type.STRING }
+                  },
+                  required: ["platform", "title", "description", "price"]
+                }
+              },
+              commonKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+              mergedMaster: { type: Type.STRING },
+              confirmedDimensions: { type: Type.STRING },
+              dimensionSourceCount: { type: Type.NUMBER }
             },
-            commonKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-            mergedMaster: { type: Type.STRING },
-            confirmedDimensions: { type: Type.STRING },
-            dimensionSourceCount: { type: Type.NUMBER }
-          },
-          required: ["listings", "commonKeywords", "mergedMaster", "confirmedDimensions", "dimensionSourceCount"]
+            required: ["listings", "commonKeywords", "mergedMaster", "confirmedDimensions", "dimensionSourceCount"]
+          }
         }
-      },
-    });
+      });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from research model.");
-    
-    const parsed: CrossPlatformResearch = JSON.parse(text);
+      const finalText = formatResponse.text;
+      if (!finalText) throw new Error("JSON formatting failed.");
+      const parsed = JSON.parse(finalText);
 
-    const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
-      uri: chunk.web?.uri || '',
-      title: chunk.web?.title || 'Exact Source'
-    })).filter((s: any) => s.uri) || [];
-
-    return {
-      ...parsed,
-      groundingSources,
-      visualSignature: metadata.visualSignature
-    };
+      return {
+        ...parsed,
+        groundingSources,
+        visualSignature: metadata.visualSignature
+      };
+    } catch (err) {
+      console.error("Research Error:", err);
+      throw err;
+    }
   }
 
   static async generateFullListing(details: ProductDetails, masterDesc?: string): Promise<FullListing> {
     const ai = this.getAI();
     const prompt = `Generate 3 distinct product listings (casual, professional, luxurious) based on: ${JSON.stringify(details)}. 
-    Base them on this EXACT MATCH master draft: ${masterDesc || 'N/A'}.
+    Reference master draft: ${masterDesc || 'N/A'}.
     
     Return JSON structure: { "casual": { "description": "...", "fabricCare": "...", "shipping": "...", "moreInfo": {} }, "professional": { ... }, "luxurious": { ... } }`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 16000 }
-      }
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: { parts: [{ text: prompt }] },
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
 
-    const text = response.text;
-    if (!text) throw new Error("No response from generation model.");
-    return JSON.parse(text);
+      const text = response.text;
+      if (!text) throw new Error("Generation failed.");
+      return JSON.parse(text);
+    } catch (err) {
+      console.error("Generation Error:", err);
+      throw err;
+    }
   }
 
   static fileToBase64(file: File): Promise<string> {
