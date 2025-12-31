@@ -1,3 +1,10 @@
+export interface ProductDimensions {
+  length?: string;
+  width?: string;
+  height?: string;
+  raw: string; // The primary display string (e.g., "36x24x12 inches")
+}
+
 export interface PlatformListing {
   platform: string;
   title: string;
@@ -5,6 +12,7 @@ export interface PlatformListing {
   price?: string;
   numericPrice?: number;
   url?: string;
+  dimensions?: string;
 }
 
 export interface CrossPlatformResearch {
@@ -12,6 +20,9 @@ export interface CrossPlatformResearch {
   mergedMaster: string;
   commonKeywords: string[];
   groundingSources?: { uri: string; title: string }[];
+  confirmedDimensions?: string;
+  dimensionSourceCount: number;
+  visualSignature?: string; 
 }
 
 export interface ProductMetadata {
@@ -23,6 +34,7 @@ export interface ProductMetadata {
   sleeveStyle: string;
   brandClues: string;
   suggestedName: string;
+  visualSignature: string; 
 }
 
 export interface ProductDetails {
