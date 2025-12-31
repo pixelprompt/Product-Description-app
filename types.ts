@@ -1,10 +1,4 @@
 
-export enum Tone {
-  Casual = 'casual',
-  Professional = 'professional',
-  Luxurious = 'luxurious'
-}
-
 export interface PlatformListing {
   platform: string;
   title: string;
@@ -62,9 +56,4 @@ export interface FullListing {
   casual: ListingSection;
   professional: ListingSection;
   luxurious: ListingSection;
-}
-
-export interface GroundingSource {
-  title: string;
-  uri: string;
 }

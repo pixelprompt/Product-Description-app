@@ -16,7 +16,7 @@ export class GeminiService {
       contents: {
         parts: [
           { inlineData: { data: base64Data.split(',')[1], mimeType: file.type } },
-          { text: "Analyze this product image. Return a JSON object with these keys: garmentType, fabricTexture, colors (array of strings), pattern, neckline, sleeveStyle, brandClues, suggestedName (a concise SEO title)." }
+          { text: "Identify this product for an e-commerce listing. Return JSON: garmentType, fabricTexture, colors (array), pattern, neckline, sleeveStyle, brandClues, suggestedName (SEO title)." }
         ],
       },
       config: {
@@ -38,23 +38,17 @@ export class GeminiService {
       }
     });
 
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   }
 
   static async researchCrossPlatform(productName: string): Promise<CrossPlatformResearch> {
     const ai = this.getAI();
-    const prompt = `Research and fetch product listings for "${productName}" specifically from these 6 platforms: Amazon.in, Flipkart.com, Meesho.com, Ajio.com, Myntra.com, and Shein.in.
+    const prompt = `Act as an e-commerce expert. Search for descriptions of "${productName}" on Amazon.in, Flipkart.com, Meesho.com, Ajio.com, Myntra.com, and Shein.in.
     
-    Return a JSON object:
-    {
-      "listings": [
-        { "platform": "Amazon", "title": "...", "description": "...", "price": "...", "url": "..." },
-        ...one for each platform...
-      ],
-      "commonKeywords": ["keyword1", "keyword2", ...],
-      "mergedMaster": "A single, highly optimized, comprehensive master description that combines the best phrasing and details from all 6 platforms, optimized for conversion."
-    }
-    If a specific platform is not found, provide a simulated high-quality description for that platform based on its typical style.`;
+    Return JSON with:
+    1. 'listings': Array of 6 objects {platform, title, description, price, url}. If not found, create a realistic high-quality simulated description for that platform.
+    2. 'commonKeywords': Array of 5-8 trending SEO keywords.
+    3. 'mergedMaster': A single merged description combining the best parts of all platform copies, optimized for cross-platform sales.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
@@ -65,26 +59,20 @@ export class GeminiService {
       },
     });
 
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   }
 
   static async generateFullListing(details: ProductDetails, masterDesc?: string): Promise<FullListing> {
     const ai = this.getAI();
-    const prompt = `Generate a comprehensive multi-tone e-commerce product listing.
-    Product Specs: ${JSON.stringify(details)}
-    ${masterDesc ? `Initial Master Content Base: ${masterDesc}` : ''}
-
-    Produce 3 versions: Casual, Professional, and Luxurious.
-    Each version must follow this JSON structure:
+    const prompt = `Generate 3 distinct product listings (casual, professional, luxurious) based on these details: ${JSON.stringify(details)}. 
+    Base them on this master draft if provided: ${masterDesc || 'N/A'}.
+    
+    Return JSON structure:
     {
-      "description": "...",
-      "fabricCare": "...",
-      "shipping": "...",
-      "moreInfo": {
-        "Items Included": "...", "Brand": "...", "Fabric": "...", "Style Code": "...", "Colors": "...", "Top Type": "...", "Bottom Type": "...", "Pattern": "...", "Occasion": "...", "Size": "...", "Sleeve Length": "...", "Neck": "...", "Fabric Care": "...", "Shipping Days": "..."
-      }
-    }
-    Return one root JSON object with keys "casual", "professional", and "luxurious".`;
+      "casual": { "description": "...", "fabricCare": "...", "shipping": "...", "moreInfo": {...} },
+      "professional": { ... },
+      "luxurious": { ... }
+    }`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
@@ -95,7 +83,7 @@ export class GeminiService {
       }
     });
 
-    return JSON.parse(response.text);
+    return JSON.parse(response.text || '{}');
   }
 
   private static fileToBase64(file: File): Promise<string> {
