@@ -19,13 +19,10 @@
     .animate-in { animation: fade-in 0.5s ease-out forwards; }
   </style>
   <script>
-    // Shim for process.env to prevent crashes in the browser
-    window.process = {
-      env: {
-        NODE_ENV: 'production',
-        API_KEY: '' // This will be handled by the environment or fallback
-      }
-    };
+    // Robust shim for process.env that doesn't overwrite existing variables
+    window.process = window.process || {};
+    window.process.env = window.process.env || {};
+    window.process.env.NODE_ENV = window.process.env.NODE_ENV || 'production';
   </script>
   <script type="importmap">
 {

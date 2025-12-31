@@ -4,6 +4,7 @@ export interface PlatformListing {
   title: string;
   description: string;
   price?: string;
+  numericPrice?: number;
   url?: string;
 }
 
@@ -56,4 +57,12 @@ export interface FullListing {
   casual: ListingSection;
   professional: ListingSection;
   luxurious: ListingSection;
+}
+
+export interface MatchResult {
+  isMatch: boolean;
+  confidence: number;
+  reason: string;
+  mismatchedIndices: number[];
+  mergedMetadata: ProductMetadata | null;
 }
