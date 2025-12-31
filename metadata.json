@@ -1,5 +1,7 @@
 {
-  "description": "Casuall Product Description app",
-  "requestFramePermissions": [],
-  "name": "Product Description app"
+  "name": "CopyCraft AI: E-commerce Product Strategist",
+  "description": "A high-end workflow for e-commerce sellers to generate compelling product descriptions, analyze visual media, and create marketing assets using Gemini 3.",
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
